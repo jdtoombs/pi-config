@@ -1,0 +1,32 @@
+# Secrets / credentials
+auth.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.env
+.env*
+
+# Session history may contain private prompts, code, tokens, or credentials
+sessions/
+
+# Installed package checkouts/caches; restore with `pi install` from settings.json
+git/**
+!git/
+!git/.gitignore
+npm/
+node_modules/
+
+# Runtime/cache/temp files
+cache/
+.caches/
+tmp/
+temp/
+*.tmp
+*.log
+.DS_Store
+
+# Optional local-only overrides
+*.local.json
+LOCAL.md

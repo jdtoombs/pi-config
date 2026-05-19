@@ -1,0 +1,9 @@
+{
+  "lastChangelogVersion": "0.74.1",
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-5.5",
+  "defaultThinkingLevel": "low",
+  "packages": [
+    "git:github.com/pasky/chrome-cdp-skill@v1.0.1"
+  ]
+}

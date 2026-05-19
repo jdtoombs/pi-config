@@ -1,0 +1,14 @@
+{
+  "tui.editor.cursorUp": ["up", "ctrl+k"],
+  "tui.editor.cursorDown": ["down", "ctrl+j"],
+  "tui.editor.cursorLeft": ["left", "ctrl+h"],
+  "tui.editor.cursorRight": ["right", "ctrl+l"],
+  "tui.editor.cursorWordLeft": ["alt+left", "ctrl+b"],
+  "tui.editor.cursorWordRight": ["alt+right", "ctrl+w"],
+  "tui.select.up": ["up", "ctrl+k"],
+  "tui.select.down": ["down", "ctrl+j"],
+  "tui.select.confirm": ["enter", "ctrl+l"],
+  "tui.select.cancel": ["escape", "ctrl+c", "ctrl+h"],
+  "app.models.reorderUp": ["alt+up", "ctrl+shift+k"],
+  "app.models.reorderDown": ["alt+down", "ctrl+shift+j"]
+}
