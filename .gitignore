@@ -19,6 +19,7 @@ npm/
 node_modules/
 
 # Runtime/cache/temp files
+.pi/
 cache/
 .caches/
 tmp/
