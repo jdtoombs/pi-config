@@ -155,13 +155,84 @@ The following are machine-local or sensitive and should stay out of git:
 - `git/` and `npm/` — installed package checkouts/caches; restore them with `pi install`.
 - caches, logs, temporary files, and local overrides.
 
+## How Pi builds model context
+
+For each turn, Pi sends the model two main pieces of context:
+
+1. **System prompt** — built by Pi before the request. By default this is generated in the installed Pi package at:
+
+   ```bash
+   /home/jdtoombs/.nvm/versions/node/v20.19.3/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/system-prompt.js
+   ```
+
+   You usually should not edit that installed package file directly because package updates can overwrite it. To customize the prompt, add one of these files instead:
+
+   - Project override: `<project>/.pi/SYSTEM.md`
+   - Global override: `~/.pi/agent/SYSTEM.md`
+   - Project append-only additions: `<project>/.pi/APPEND_SYSTEM.md`
+   - Global append-only additions: `~/.pi/agent/APPEND_SYSTEM.md`
+
+   `SYSTEM.md` replaces the default generated prompt. `APPEND_SYSTEM.md` is appended to the generated or custom system prompt.
+
+2. **Conversation messages** — stored as JSONL session entries under `~/.pi/agent/sessions/`. On resume or before a turn, Pi resolves the active conversation branch into the messages sent to the LLM. The core path is:
+
+   - `dist/core/session-manager.js` — `buildSessionContext(...)` walks from the selected leaf entry back to the root, preserving the active branch.
+   - If there is no compaction, it emits all messages on that branch.
+   - If there is a compaction, it emits the compaction summary first, then the retained messages and later messages.
+   - Branch summaries and extension custom messages are included as user-context messages.
+   - `dist/core/messages.js` — `convertToLlm(...)` converts Pi-specific message types, such as bash execution records, compaction summaries, branch summaries, and custom extension messages, into normal LLM-compatible messages.
+   - `dist/core/agent-session.js` — rebuilds `agent.state.messages` from `sessionManager.buildSessionContext().messages` and calls `agent.prompt(messages)` for each turn.
+
+Project instruction files such as `AGENTS.md` and `CLAUDE.md` are not normal conversation messages. They are discovered by `dist/core/resource-loader.js` and appended into the **system prompt** as `# Project Context` unless disabled with `--no-context-files` / `-nc`.
+
 ## Useful Pi paths
 
-- Global config: `~/.pi/agent/`
+This repo is intended to live at `~/.pi/agent`, so these paths can be opened directly in Neovim.
+
+### Quick edit locations
+
+```bash
+cd ~/.pi/agent
+nvim README.md
+nvim settings.json
+nvim keybindings.json
+nvim extensions/landing.ts
+nvim extensions/vim-quit.ts
+nvim prompts/plan.md
+nvim prompts/todos.md
+nvim skills/plan/SKILL.md
+nvim skills/write-todos/SKILL.md
+nvim skills/code-simplifier/SKILL.md
+```
+
+### Config files in this git repo
+
+- Global config repo: `~/.pi/agent/`
 - Settings: `~/.pi/agent/settings.json`
 - Keybindings: `~/.pi/agent/keybindings.json`
-- Extensions: `~/.pi/agent/extensions/`
-- Skills: `~/.pi/agent/skills/`
-- Prompt templates: `~/.pi/agent/prompts/`
-- Themes: `~/.pi/agent/themes/`
+- Landing page extension: `~/.pi/agent/extensions/landing.ts`
+- Vim quit extension: `~/.pi/agent/extensions/vim-quit.ts`
+- Extensions directory: `~/.pi/agent/extensions/`
+- Plan prompt template: `~/.pi/agent/prompts/plan.md`
+- Todos prompt template: `~/.pi/agent/prompts/todos.md`
+- Prompt templates directory: `~/.pi/agent/prompts/`
+- Plan skill: `~/.pi/agent/skills/plan/SKILL.md`
+- Write todos skill: `~/.pi/agent/skills/write-todos/SKILL.md`
+- Code simplifier skill: `~/.pi/agent/skills/code-simplifier/SKILL.md`
+- Skills directory: `~/.pi/agent/skills/`
+- Themes directory, if added later: `~/.pi/agent/themes/`
+
+### Machine-local paths not committed
+
 - Sessions: `~/.pi/agent/sessions/`
+- Auth file: `~/.pi/agent/auth.json`
+- Installed package checkouts/cache: `~/.pi/agent/git/` and `~/.pi/agent/npm/`
+
+### Installed Pi package files patched locally
+
+These are **not** in this git repo and may be overwritten by Pi updates, but they are useful when editing local Pi behavior:
+
+- Installed Pi package root: `/home/jdtoombs/.nvm/versions/node/v20.19.3/lib/node_modules/@earendil-works/pi-coding-agent/`
+- File-change approval helper: `/home/jdtoombs/.nvm/versions/node/v20.19.3/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/tools/change-approval.js`
+- Edit tool implementation: `/home/jdtoombs/.nvm/versions/node/v20.19.3/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/tools/edit.js`
+- Write tool implementation: `/home/jdtoombs/.nvm/versions/node/v20.19.3/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/tools/write.js`
