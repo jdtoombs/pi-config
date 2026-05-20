@@ -96,17 +96,14 @@ Unlike the upstream Solo-native versions, these local versions use normal reposi
 
 ## Landing page shortcut
 
-`extensions/landing.ts` adds a custom landing menu with shortcuts for common actions:
+`extensions/landing.ts` adds a custom animated landing menu that appears on Pi startup and can also be opened manually.
 
-- New session
-- Resume session
-- Session tree
-- Plan something
-- Write todos
-- Settings
-- Reload config
+The landing menu shows:
 
-Open it with:
+- Up to three recent conversations, excluding the currently open session.
+- A `Start a new conversation` option.
+
+Open it manually with:
 
 ```text
 Alt+Escape
@@ -117,6 +114,14 @@ or:
 ```text
 /landing
 ```
+
+Controls:
+
+- `↑` / `↓` or `j` / `k` to move through options.
+- `1`-`4`, `Enter`, or `l` to select.
+- `Esc` or `h` to cancel.
+
+Selecting a recent conversation switches to it when Pi exposes session switching to extensions; otherwise the extension opens `/resume`. Selecting `Start a new conversation` fills the editor with `/new`.
 
 The shortcut only opens the landing menu when Pi is idle. Plain `Escape` remains available to abort/cancel active responses.
 
