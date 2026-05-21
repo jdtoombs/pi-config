@@ -31,6 +31,7 @@ type LandingOption = {
 };
 
 type SwitchableContext = ExtensionContext & {
+  newSession?: (options?: any) => Promise<{ cancelled?: boolean } | void>;
   switchSession?: (sessionPath: string, options?: any) => Promise<{ cancelled?: boolean } | void>;
 };
 
@@ -172,17 +173,36 @@ async function showLanding(ctx: SwitchableContext) {
   if (!choice) return;
 
   if (choice.type === "new") {
+    if (ctx.newSession) {
+      await ctx.newSession({
+        withSession: async (nextCtx: ExtensionContext) => {
+          nextCtx.ui.notify("Started new conversation", "info");
+        },
+      });
+      return;
+    }
+
+    ctx.ui.notify("Press Enter to start a new conversation.", "info");
     ctx.ui.setEditorText("/new");
     return;
   }
 
   if (ctx.switchSession) {
-    await ctx.switchSession(choice.path);
-    return;
+    const result = await ctx.switchSession(choice.path, {
+      withSession: async (nextCtx: ExtensionContext) => {
+        nextCtx.ui.notify("Resumed selected conversation", "info");
+      },
+    });
+    if (!result?.cancelled) return;
   }
 
-  ctx.ui.notify("Open /resume to switch to that conversation.", "info");
-  ctx.ui.setEditorText("/resume");
+  const encodedPath = Buffer.from(choice.path, "utf8").toString("base64url");
+  ctx.ui.notify("Press Enter to resume the selected conversation.", "info");
+  ctx.ui.setEditorText(`/landing-resume ${encodedPath}`);
+}
+
+function decodeSessionPath(encodedPath: string) {
+  return Buffer.from(encodedPath.trim(), "base64url").toString("utf8");
 }
 
 export default function (pi: ExtensionAPI) {
@@ -190,6 +210,23 @@ export default function (pi: ExtensionAPI) {
     description: "Show the custom Pi landing page",
     handler: async (_args, ctx) => {
       await showLanding(ctx);
+    },
+  });
+
+  pi.registerCommand("landing-resume", {
+    description: "Resume a landing-page selected session",
+    handler: async (args, ctx) => {
+      const sessionPath = decodeSessionPath(args);
+      if (!sessionPath) {
+        ctx.ui.notify("Missing selected session path.", "error");
+        return;
+      }
+
+      await ctx.switchSession(sessionPath, {
+        withSession: async (nextCtx: ExtensionContext) => {
+          nextCtx.ui.notify("Resumed selected conversation", "info");
+        },
+      });
     },
   });
 
