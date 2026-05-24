@@ -14,11 +14,13 @@ This repository is intended to be checked out at:
 - `keybindings.json` — Vim-style navigation shortcuts for Pi's TUI.
 - `extensions/vim-quit.ts` — adds `:q` and `:quit` commands to exit Pi from interactive mode.
 - `extensions/landing.ts` — adds `/landing` and `Alt+Escape` for returning to the custom landing menu.
+- `extensions/tickets.ts` — adds `/tickets` for parallel ticket worktrees and tmux-launched Pi panes.
 - `skills/code-simplifier/SKILL.md` — code refinement skill for simplifying and cleaning up code while preserving behavior.
 - `skills/plan/SKILL.md` — Pi-native planning workflow skill adapted from HazAT/pi-config.
 - `skills/write-todos/SKILL.md` — Pi-native task/todo-writing skill adapted from HazAT/pi-config.
 - `prompts/plan.md` — `/plan` prompt template for starting the planning workflow.
 - `prompts/todos.md` — `/todos` prompt template for creating implementation todos.
+- `scripts/ticket-batch` — helper for creating parallel ticket worktrees and integrating them later.
 - `README.md` — this documentation.
 - `.gitignore` — excludes credentials, sessions, package checkouts, caches, and other machine-local files.
 
@@ -33,6 +35,46 @@ Pi is configured with:
 Installed Pi packages are tracked in `settings.json`:
 
 - `git:github.com/pasky/chrome-cdp-skill@v1.0.1`
+
+## Parallel ticket worktrees
+
+Use `/tickets` inside Pi, or `scripts/ticket-batch` from any git repo, to create one isolated worktree per ticket and merge them into an integration branch when done.
+
+Inside Pi:
+
+```text
+/tickets start --tmux TICKET-1 TICKET-2 TICKET-3 TICKET-4
+/tickets list
+/tickets integrate TICKET-1 TICKET-2 TICKET-3 TICKET-4
+/tickets cleanup TICKET-1 TICKET-2
+```
+
+Command reference:
+
+- `/tickets start TICKET-1 TICKET-2 ...` — create one branch and git worktree per ticket.
+- `/tickets start --tmux TICKET-1 TICKET-2 ...` — create the worktrees, open one tmux pane per ticket, and auto-start `pi` in each pane. Any number of tickets is supported; three tickets creates three panes, four creates four panes, etc.
+- `/tickets list` — show current git worktrees for the repo.
+- `/tickets integrate TICKET-1 TICKET-2 ...` — create a new `integration/<timestamp>` branch from the base branch and merge each ticket branch into it. Run this after the ticket panes/agents are done and have committed their changes, then run tests and open a PR from the integration branch.
+- `/tickets cleanup TICKET-1 TICKET-2 ...` — remove the worktree directories for those tickets. This does not delete the `ticket/<ticket-slug>` branches.
+
+Common flow:
+
+```text
+/tickets start --tmux TICKET-1 TICKET-2 TICKET-3
+# work happens in each pane; commit each ticket branch
+/tickets integrate TICKET-1 TICKET-2 TICKET-3
+# run tests, push integration branch, open PR
+/tickets cleanup TICKET-1 TICKET-2 TICKET-3
+```
+
+Shell equivalent:
+
+```bash
+~/.pi/agent/scripts/ticket-batch start --base main TICKET-1 TICKET-2 TICKET-3 TICKET-4
+~/.pi/agent/scripts/ticket-batch integrate --base main TICKET-1 TICKET-2 TICKET-3 TICKET-4
+```
+
+The default branch names are `ticket/<ticket-slug>`, and worktrees are created beside the repo in `../<repo>-worktrees/`.
 
 ## Chrome CDP skill
 

@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+ticket-batch: manage parallel ticket worktrees and integration merges
+
+Usage:
+  ticket-batch start [options] TICKET...
+  ticket-batch integrate [options] TICKET...
+  ticket-batch list [options]
+  ticket-batch cleanup [options] TICKET...
+
+Options:
+  -r, --repo PATH          Repository path (default: current directory)
+  -b, --base BRANCH        Base branch (default: current branch)
+  -d, --dir PATH           Worktree parent directory (default: ../<repo>-worktrees)
+  -p, --prefix PREFIX      Ticket branch prefix (default: ticket/)
+  -i, --integration NAME   Integration branch name (default: integration/<timestamp>)
+      --launch CMD         Print a launch command for each worktree, e.g. --launch pi
+  -h, --help               Show this help
+
+Examples:
+  ticket-batch start ABC-1 ABC-2 ABC-3 ABC-4
+  ticket-batch start --base main --launch pi ABC-1 ABC-2
+  ticket-batch integrate --base main ABC-1 ABC-2 ABC-3 ABC-4
+  ticket-batch cleanup ABC-1 ABC-2
+USAGE
+}
+
+err() { printf 'error: %s\n' "$*" >&2; exit 1; }
+info() { printf '==> %s\n' "$*"; }
+
+slugify() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//'
+}
+
+repo_root() {
+  git -C "$1" rev-parse --show-toplevel 2>/dev/null || err "not a git repository: $1"
+}
+
+current_branch() {
+  git -C "$1" symbolic-ref --quiet --short HEAD 2>/dev/null || err "detached HEAD; pass --base explicitly"
+}
+
+parse_common() {
+  repo="$(pwd)"
+  base=""
+  dir=""
+  prefix="ticket/"
+  integration=""
+  launch=""
+  tickets=()
+
+  while (($#)); do
+    case "$1" in
+      -r|--repo) repo="$2"; shift 2 ;;
+      -b|--base) base="$2"; shift 2 ;;
+      -d|--dir) dir="$2"; shift 2 ;;
+      -p|--prefix) prefix="$2"; shift 2 ;;
+      -i|--integration) integration="$2"; shift 2 ;;
+      --launch) launch="$2"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      --) shift; tickets+=("$@"); break ;;
+      -*) err "unknown option: $1" ;;
+      *) tickets+=("$1"); shift ;;
+    esac
+  done
+
+  repo="$(repo_root "$repo")"
+  base="${base:-$(current_branch "$repo") }"
+  base="${base% }"
+  repo_name="$(basename "$repo")"
+  dir="${dir:-$(dirname "$repo")/${repo_name}-worktrees}"
+}
+
+branch_for() {
+  local ticket="$1"
+  printf '%s%s' "$prefix" "$(slugify "$ticket")"
+}
+
+worktree_for() {
+  local ticket="$1"
+  printf '%s/%s' "$dir" "$(slugify "$ticket")"
+}
+
+require_tickets() {
+  ((${#tickets[@]} > 0)) || err "provide at least one ticket"
+}
+
+cmd_start() {
+  parse_common "$@"
+  require_tickets
+
+  info "repo: $repo"
+  info "base: $base"
+  info "worktree dir: $dir"
+
+  git -C "$repo" diff --quiet || err "repo has uncommitted changes; commit/stash first"
+  git -C "$repo" diff --cached --quiet || err "repo has staged changes; commit/stash first"
+  git -C "$repo" fetch --all --prune
+  mkdir -p "$dir"
+
+  for ticket in "${tickets[@]}"; do
+    branch="$(branch_for "$ticket")"
+    wt="$(worktree_for "$ticket")"
+
+    if git -C "$repo" show-ref --verify --quiet "refs/heads/$branch"; then
+      info "adding existing branch $branch at $wt"
+      git -C "$repo" worktree add "$wt" "$branch"
+    else
+      info "creating $branch at $wt from $base"
+      git -C "$repo" worktree add -b "$branch" "$wt" "$base"
+    fi
+
+    cat > "$wt/TICKET_CONTEXT.md" <<EOF
+# $ticket
+
+Branch: $branch
+Base: $base
+
+Agent instructions:
+- Work only in this worktree: $wt
+- Keep this ticket scoped and commit changes when done.
+- Run relevant tests before marking complete.
+EOF
+  done
+
+  printf '\nCreated worktrees:\n'
+  for ticket in "${tickets[@]}"; do
+    wt="$(worktree_for "$ticket")"
+    printf '  cd %q\n' "$wt"
+    if [[ -n "$launch" ]]; then
+      printf '  (cd %q && %s)\n' "$wt" "$launch"
+    fi
+  done
+}
+
+cmd_integrate() {
+  parse_common "$@"
+  require_tickets
+  integration="${integration:-integration/$(date +%Y%m%d-%H%M%S)}"
+
+  info "repo: $repo"
+  info "base: $base"
+  info "integration: $integration"
+
+  git -C "$repo" diff --quiet || err "repo has uncommitted changes; commit/stash first"
+  git -C "$repo" diff --cached --quiet || err "repo has staged changes; commit/stash first"
+  git -C "$repo" fetch --all --prune
+  git -C "$repo" switch "$base"
+  if git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    git -C "$repo" pull --ff-only
+  fi
+  git -C "$repo" switch -c "$integration"
+
+  for ticket in "${tickets[@]}"; do
+    branch="$(branch_for "$ticket")"
+    git -C "$repo" show-ref --verify --quiet "refs/heads/$branch" || err "missing branch: $branch"
+    info "merging $branch"
+    if ! git -C "$repo" merge --no-ff --no-edit "$branch"; then
+      printf '\nConflict while merging %s. Resolve in %s, then run tests and commit.\n' "$branch" "$repo" >&2
+      printf 'After resolving, continue manually with: git merge --continue\n' >&2
+      exit 2
+    fi
+  done
+
+  printf '\nIntegrated branches into %s. Run your full test suite, then push/open PR.\n' "$integration"
+}
+
+cmd_list() {
+  parse_common "$@"
+  git -C "$repo" worktree list
+}
+
+cmd_cleanup() {
+  parse_common "$@"
+  require_tickets
+  for ticket in "${tickets[@]}"; do
+    wt="$(worktree_for "$ticket")"
+    info "removing worktree $wt"
+    git -C "$repo" worktree remove "$wt"
+  done
+}
+
+command="${1:-}"
+case "$command" in
+  start) shift; cmd_start "$@" ;;
+  integrate) shift; cmd_integrate "$@" ;;
+  list) shift; cmd_list "$@" ;;
+  cleanup) shift; cmd_cleanup "$@" ;;
+  -h|--help|help|"") usage ;;
+  *) err "unknown command: $command" ;;
+esac
