@@ -206,6 +206,12 @@ function decodeSessionPath(encodedPath: string) {
 }
 
 export default function (pi: ExtensionAPI) {
+  pi.registerFlag("landing", {
+    type: "boolean",
+    description: "Show the custom Pi landing page on startup",
+    default: false,
+  });
+
   pi.registerCommand("landing", {
     description: "Show the custom Pi landing page",
     handler: async (_args, ctx) => {
@@ -238,7 +244,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (event, ctx) => {
-    if (event.reason !== "startup" || !ctx.hasUI) return;
+    if (event.reason !== "startup" || !ctx.hasUI || pi.getFlag("landing") !== true) return;
     await showLanding(ctx);
   });
 }
