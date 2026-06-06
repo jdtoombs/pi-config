@@ -20,6 +20,10 @@ This repository is intended to be checked out at:
 - `skills/write-todos/SKILL.md` — Pi-native task/todo-writing skill adapted from HazAT/pi-config.
 - `prompts/plan.md` — `/plan` prompt template for starting the planning workflow.
 - `prompts/todos.md` — `/todos` prompt template for creating implementation todos.
+- `prompts/reviewdiff.md` — `/reviewdiff` prompt template for reviewing the current git diff.
+- `prompts/verify.md` — `/verify` prompt template for running relevant tests, lint, build, and verification checks.
+- `prompts/handoff.md` — `/handoff` prompt template for summarizing current state and next steps.
+- `prompts/commitmsg.md` — `/commitmsg` prompt template for drafting a conventional commit message from the current diff.
 - `scripts/ticket-batch` — helper for creating parallel ticket worktrees and integrating them later.
 - `README.md` — this documentation.
 - `.gitignore` — excludes credentials, sessions, package checkouts, caches, and other machine-local files.
@@ -125,6 +129,33 @@ Unlike the upstream Solo-native versions, these local versions use normal reposi
 - `skills/write-todos/SKILL.md` — creates clear implementation todos in `TODO.md` or `.pi/todos/<slug>.md` with context, constraints, references, and acceptance criteria.
 - `prompts/plan.md` — use `/plan <request>` to start a planning workflow.
 - `prompts/todos.md` — use `/todos <request or plan path>` to create implementation todos.
+
+## Workflow prompt templates
+
+This config includes additional reusable prompt templates for common end-of-task and review workflows. Restart Pi or run `/reload` after changing prompt files.
+
+- `/reviewdiff [focus]` — review the current git diff for bugs, regressions, edge cases, missing tests, security issues, performance issues, and confusing code. It uses read-only git commands when `bash` is available; in read-only Pi sessions without `bash`, paste the diff or provide files to review.
+- `/verify [scope]` — identify and run relevant test, lint, typecheck, and build commands; fix clear failures if edit tools are available; summarize passed checks, failed checks, fixes, and remaining risks.
+- `/handoff [audience]` — summarize current objective, status, changed files, decisions, checks run, risks, open questions, and recommended next steps before stopping work or switching sessions.
+- `/commitmsg [scope/style]` — inspect the current diff and draft a concise Conventional Commit message. It does not edit files or create a commit.
+
+Example invocations:
+
+```text
+/reviewdiff focus on auth edge cases
+/verify payment form changes
+/handoff for tomorrow morning
+/commitmsg use api scope
+```
+
+The template files live in:
+
+```bash
+prompts/reviewdiff.md
+prompts/verify.md
+prompts/handoff.md
+prompts/commitmsg.md
+```
 
 ## Vim-style keybindings
 
@@ -247,6 +278,10 @@ nvim extensions/landing.ts
 nvim extensions/vim-quit.ts
 nvim prompts/plan.md
 nvim prompts/todos.md
+nvim prompts/reviewdiff.md
+nvim prompts/verify.md
+nvim prompts/handoff.md
+nvim prompts/commitmsg.md
 nvim skills/plan/SKILL.md
 nvim skills/write-todos/SKILL.md
 nvim skills/code-simplifier/SKILL.md
@@ -262,6 +297,10 @@ nvim skills/code-simplifier/SKILL.md
 - Extensions directory: `~/.pi/agent/extensions/`
 - Plan prompt template: `~/.pi/agent/prompts/plan.md`
 - Todos prompt template: `~/.pi/agent/prompts/todos.md`
+- Review diff prompt template: `~/.pi/agent/prompts/reviewdiff.md`
+- Verify prompt template: `~/.pi/agent/prompts/verify.md`
+- Handoff prompt template: `~/.pi/agent/prompts/handoff.md`
+- Commit message prompt template: `~/.pi/agent/prompts/commitmsg.md`
 - Prompt templates directory: `~/.pi/agent/prompts/`
 - Plan skill: `~/.pi/agent/skills/plan/SKILL.md`
 - Write todos skill: `~/.pi/agent/skills/write-todos/SKILL.md`
